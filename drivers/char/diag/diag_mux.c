@@ -185,6 +185,10 @@ int diag_mux_write(int proc, unsigned char *buf, int len, int ctx)
 				(log_sink ? "MD_device" : "USB"));
 		}
 	}
+
+	pr_err("@ %s, msg len[%d] from %s/%x\n", __func__,len, proc?"remote":"local", peripheral);
+	print_hex_dump(KERN_INFO, "header: ", DUMP_PREFIX_NONE,16, 1, buf, len>0x20?0x20:len, 0);
+
 	if (logger && logger->log_ops && logger->log_ops->write)
 		return logger->log_ops->write(proc, buf, len, ctx);
 	return 0;

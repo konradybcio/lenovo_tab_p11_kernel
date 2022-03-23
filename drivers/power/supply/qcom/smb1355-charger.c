@@ -142,13 +142,6 @@
 #define MISC_CHGR_TRIM_OPTIONS_REG		(MISC_BASE + 0x55)
 #define CMD_RBIAS_EN_BIT			BIT(2)
 
-#define MISC_ENG_SDCDC_RESERVE1_REG		(MISC_BASE + 0xC4)
-#define MINOFF_TIME_MASK			BIT(6)
-
-#define MISC_ENG_SDCDC_CFG8_REG			(MISC_BASE + 0xC7)
-#define DEAD_TIME_MASK				GENMASK(2, 0)
-#define DEAD_TIME_32NS				0x4
-
 #define MISC_ENG_SDCDC_INPUT_CURRENT_CFG1_REG	(MISC_BASE + 0xC8)
 #define PROLONG_ISENSE_MASK			GENMASK(7, 6)
 #define PROLONG_ISENSEM_SHIFT			6
@@ -528,7 +521,7 @@ static int smb1355_parse_dt(struct smb1355 *chip)
 	rc = of_property_read_u32(node,
 		"qcom,parallel-mode", &chip->dt.pl_mode);
 	if (rc < 0)
-		chip->dt.pl_mode = POWER_SUPPLY_PL_USBMID_USBMID;
+		chip->dt.pl_mode = POWER_SUPPLY_PL_USBIN_USBIN;
 
 	/*
 	 * If stacked-batfet property is not present default
@@ -810,11 +803,12 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		val->intval = chip->dt.pl_mode;
 		break;
 	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
-		if (chip->c_health == -EINVAL)
-			rc = smb1355_get_prop_health_value(chip, val,
-							CONNECTOR_TEMP);
-		else
-			val->intval = chip->c_health;
+		//if (chip->c_health == -EINVAL)
+		//	rc = smb1355_get_prop_health_value(chip, val,
+		//					CONNECTOR_TEMP);
+		//else
+			pr_err("==========1355-health===val->intval[%d]======\r\n",val->intval);
+			val->intval = POWER_SUPPLY_HEALTH_GOOD;//chip->c_health;
 		break;
 	case POWER_SUPPLY_PROP_DIE_HEALTH:
 		rc = smb1355_get_prop_health_value(chip, val, DIE_TEMP);
@@ -939,8 +933,10 @@ static int smb1355_set_current_max(struct smb1355 *chip, int curr)
 	int rc = 0;
 
 	if (!IS_USBIN(chip->dt.pl_mode))
+		{
+		pr_err("=========smb1355_set_current_max====leon=======\r\n");
 		return 0;
-
+		}
 	if ((curr / 1000) < 100) {
 		/* disable parallel path (ICL < 100mA) */
 		rc = smb1355_set_parallel_charging(chip, true);
@@ -1273,22 +1269,6 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	if (rc < 0) {
 		pr_err("Couldn't set PRE_TO_FAST_CHARGE_THRESHOLD rc=%d\n",
 			rc);
-		return rc;
-	}
-
-	/* Extend min-offtime same as blanking time */
-	rc = smb1355_masked_write(chip, MISC_ENG_SDCDC_RESERVE1_REG,
-						MINOFF_TIME_MASK, 0);
-	if (rc < 0) {
-		pr_err("Couldn't set MINOFF_TIME rc=%d\n", rc);
-		return rc;
-	}
-
-	/* Set dead-time to 32ns */
-	rc = smb1355_masked_write(chip, MISC_ENG_SDCDC_CFG8_REG,
-					DEAD_TIME_MASK, DEAD_TIME_32NS);
-	if (rc < 0) {
-		pr_err("Couldn't set DEAD_TIME to 32ns rc=%d\n", rc);
 		return rc;
 	}
 

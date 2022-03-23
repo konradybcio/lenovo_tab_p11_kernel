@@ -52,6 +52,13 @@
 #include "sd_ops.h"
 #include "sdio_ops.h"
 
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_BH201
+#include "../host/sdhci-msm.h"
+#else
+#define SDHCI_TIMEOUT_CONTROL	0x2E
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 /* The max erase timeout, used when host->max_busy_timeout isn't specified */
 #define MMC_ERASE_TIMEOUT_MS	(60 * 1000) /* 60 s */
 
@@ -536,6 +543,17 @@ static int mmc_devfreq_set_target(struct device *dev,
 
 	pr_debug("%s: target freq = %lu (%s)\n", mmc_hostname(host),
 		*freq, current->comm);
+/* huaqin add for SD card bringup by liufurong at 20190201 start */
+#ifdef CONFIG_MMC_SDHCI_BH201
+	{
+		struct sdhci_host *sdhost = mmc_priv(host);
+
+		if (bht_target_host(sdhost)) {
+			goto out;
+		}
+	}
+#endif
+/* huaqin add for SD card bringup by liufurong at 20190201 end */
 
 	spin_lock_irqsave(&clk_scaling->lock, flags);
 	if (clk_scaling->target_freq == *freq ||
@@ -693,12 +711,6 @@ static int mmc_devfreq_create_freq_table(struct mmc_host *host)
 		pr_debug("%s: frequency table overshot possible freq (%d)\n",
 				mmc_hostname(host), clk_scaling->freq_table[i]);
 		break;
-	}
-
-	if (mmc_card_sd(host->card) && (clk_scaling->freq_table_sz < 2)) {
-		clk_scaling->freq_table[clk_scaling->freq_table_sz] =
-				host->card->clk_scaling_highest;
-		clk_scaling->freq_table_sz++;
 	}
 
 out:

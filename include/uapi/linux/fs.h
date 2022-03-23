@@ -270,8 +270,7 @@ struct fsxattr {
 #define FS_POLICY_FLAGS_PAD_32		0x03
 #define FS_POLICY_FLAGS_PAD_MASK	0x03
 #define FS_POLICY_FLAG_DIRECT_KEY	0x04	/* use master key directly */
-#define FS_POLICY_FLAG_IV_INO_LBLK_32	0x10
-#define FS_POLICY_FLAGS_VALID		0x17
+#define FS_POLICY_FLAGS_VALID		0x07
 
 /* Encryption algorithms */
 #define FS_ENCRYPTION_MODE_INVALID		0
@@ -303,7 +302,7 @@ struct fscrypt_policy {
 #define FS_KEY_DESC_PREFIX_SIZE		8
 
 /* Structure that userspace passes to the kernel keyring */
-#define FS_MAX_KEY_SIZE			128
+#define FS_MAX_KEY_SIZE			64
 
 struct fscrypt_key {
 	__u32 mode;

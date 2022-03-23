@@ -426,6 +426,9 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 					goto drop_data;
 				}
 				ret += entry->len;
+				pr_err("%sdata to process[%d](%s)\n", drain_again?"[more] ":"",info->pid, session_info->task->comm);
+				print_hex_dump(KERN_INFO, "APP< ", DUMP_PREFIX_NONE,16, 1, entry->buf, entry->len>0x100?0x100:entry->len, 0);
+
 				put_task_struct(task_s);
 			}
 

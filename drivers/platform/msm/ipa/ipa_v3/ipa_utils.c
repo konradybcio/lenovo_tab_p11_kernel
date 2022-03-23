@@ -5255,23 +5255,19 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	if (ep_holb->en == IPA_HOLB_TMR_DIS) {
-		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
-			clnt_hdl, ep_holb);
-		goto success;
-	}
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n, clnt_hdl,
+		ep_holb);
 
-	/* Follow HPG sequence to DIS_HOLB, Configure Timer, and HOLB_EN */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
-		ipa3_ctx->ep[clnt_hdl].holb.en = IPA_HOLB_TMR_DIS;
+	/* IPA4.5 issue requires HOLB_EN to be written twice */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
 		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 			clnt_hdl, ep_holb);
-	}
 
 	/* Configure timer */
 	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_2) {
 		ipa3_cal_ep_holb_scale_base_val(ep_holb->tmr_val,
-			&ipa3_ctx->ep[clnt_hdl].holb);
+				&ipa3_ctx->ep[clnt_hdl].holb);
+		goto success;
 	}
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
 		int res;
@@ -5287,19 +5283,9 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 		}
 	}
 
+success:
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
 		clnt_hdl, &ipa3_ctx->ep[clnt_hdl].holb);
-
-	/* Enable HOLB */
-	ipa3_ctx->ep[clnt_hdl].holb.en = IPA_HOLB_TMR_EN;
-	ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
-		clnt_hdl, ep_holb);
-	/* For targets > IPA_4.0 issue requires HOLB_EN to be written twice */
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
-		ipahal_write_reg_n_fields(IPA_ENDP_INIT_HOL_BLOCK_EN_n,
-			clnt_hdl, ep_holb);
-
-success:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	IPADBG("cfg holb %u ep=%d tmr=%d\n", ep_holb->en, clnt_hdl,
 		ep_holb->tmr_val);
@@ -7590,9 +7576,13 @@ static bool ipa3_gsi_channel_is_quite(struct ipa3_ep_context *ep)
 	bool empty;
 
 	gsi_is_channel_empty(ep->gsi_chan_hdl, &empty);
-	if (!empty)
+	if (!empty) {
 		IPADBG("ch %ld not empty\n", ep->gsi_chan_hdl);
-	/*Schedule NAPI only from interrupt context to avoid race conditions*/
+		/* queue a work to start polling if don't have one */
+		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
+		if (!atomic_read(&ep->sys->curr_polling_state))
+			__ipa_gsi_irq_rx_scedule_poll(ep->sys);
+	}
 	return empty;
 }
 

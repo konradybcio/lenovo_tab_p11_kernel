@@ -35,7 +35,7 @@
 #include <linux/hiddev.h>
 #include <linux/hid-debug.h>
 #include <linux/hidraw.h>
-
+#include <linux/power_supply.h>
 #include "hid-ids.h"
 
 /*
@@ -56,6 +56,8 @@ MODULE_PARM_DESC(ignore_special_drivers, "Ignore any special drivers and handle 
 /*
  * Register a new report for a device.
  */
+
+bool kbd_screen_off = false;
 
 struct hid_report *hid_register_report(struct hid_device *device,
 				       unsigned int type, unsigned int id,
@@ -93,7 +95,7 @@ EXPORT_SYMBOL_GPL(hid_register_report);
  * Register a new field for this report.
  */
 
-static struct hid_field *hid_register_field(struct hid_report *report, unsigned usages)
+static struct hid_field *hid_register_field(struct hid_report *report, unsigned usages, unsigned values)
 {
 	struct hid_field *field;
 
@@ -104,7 +106,7 @@ static struct hid_field *hid_register_field(struct hid_report *report, unsigned 
 
 	field = kzalloc((sizeof(struct hid_field) +
 			 usages * sizeof(struct hid_usage) +
-			 usages * sizeof(unsigned)), GFP_KERNEL);
+			 values * sizeof(unsigned)), GFP_KERNEL);
 	if (!field)
 		return NULL;
 
@@ -294,7 +296,7 @@ static int hid_add_field(struct hid_parser *parser, unsigned report_type, unsign
 	usages = max_t(unsigned, parser->local.usage_index,
 				 parser->global.report_count);
 
-	field = hid_register_field(report, usages);
+	field = hid_register_field(report, usages, parser->global.report_count);
 	if (!field)
 		return 0;
 
@@ -1331,7 +1333,9 @@ static void hid_process_event(struct hid_device *hid, struct hid_field *field,
 	}
 
 	if (hid->claimed & HID_CLAIMED_INPUT)
+	{
 		hidinput_hid_event(hid, field, usage, value);
+	}
 	if (hid->claimed & HID_CLAIMED_HIDDEV && interrupt && hid->hiddev_hid_event)
 		hid->hiddev_hid_event(hid, field, usage, value);
 }
@@ -2034,6 +2038,54 @@ bool hid_compare_device_paths(struct hid_device *hdev_a,
 }
 EXPORT_SYMBOL_GPL(hid_compare_device_paths);
 
+#if 0
+static enum power_supply_property kbd_hid_props[] = {
+	POWER_SUPPLY_PROP_screen_status,
+};
+
+static int kbd_hid_property(struct power_supply *psy,
+                    enum power_supply_property psp,
+                    union power_supply_propval *val)
+{
+
+	if(kbd_screen_off)
+	{
+		 val->intval = 1;
+	}
+	else
+	{
+		 val->intval = 0;
+	}
+   	 return 0;
+	
+
+}
+static int kbd_hid_set_property(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	if(val->intval == 1)
+	{
+		kbd_screen_off =true;
+	}
+	else
+	{
+		kbd_screen_off =false;
+	}
+	pr_err("=================kbd_screen[%d]=============\r\n",kbd_screen_off);
+	return 0;
+}
+
+static const struct power_supply_desc kbd_hid_desc = {
+	.name			= "mcu_kbd",
+	.type			= POWER_SUPPLY_TYPE_CUST,
+	.properties		= kbd_hid_props,
+	.num_properties		= 1,
+	.get_property		= kbd_hid_property,
+	.set_property		= kbd_hid_set_property,
+	.property_is_writeable	= NULL,
+};
+#endif	
 static int hid_device_probe(struct device *dev)
 {
 	struct hid_driver *hdrv = to_hid_driver(dev->driver);
@@ -2088,6 +2140,10 @@ static int hid_device_probe(struct device *dev)
 			hdev->driver = NULL;
 		}
 	}
+	
+	//power_supply_register(dev, &kbd_hid_desc,NULL);
+	//pr_err("=============@@@@@@@@@@@@@@@@==============hid_device_probe=====\r\n");
+
 unlock:
 	if (!hdev->io_started)
 		up(&hdev->driver_input_lock);

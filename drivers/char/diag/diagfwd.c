@@ -1201,6 +1201,8 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 		diag_send_rsp(driver->apps_rsp_buf, mask_ret, pid);
 		return 0;
 	}
+	pr_err("@ %s, pid[%d](%s) request packet\n", __func__, pid, current->comm);
+	print_hex_dump(KERN_INFO, "> ", DUMP_PREFIX_NONE, 16, 1, buf, len, 0);
 
 	temp = buf;
 	if (len >= sizeof(uint8_t)) {

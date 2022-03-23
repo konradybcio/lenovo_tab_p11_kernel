@@ -43,6 +43,7 @@
 #include <linux/jiffies.h>
 #include <linux/string.h>
 #include <linux/timer.h>
+#include <linux/power_supply.h>
 
 
 MODULE_AUTHOR("Stephane Chatty <chatty@enac.fr>");
@@ -51,6 +52,8 @@ MODULE_DESCRIPTION("HID multitouch panels");
 MODULE_LICENSE("GPL");
 
 #include "hid-ids.h"
+
+bool tp_screen_off =false;
 
 /* quirks to control the device */
 #define MT_QUIRK_NOT_SEEN_MEANS_UP	BIT(0)
@@ -1366,6 +1369,18 @@ static void mt_report(struct hid_device *hid, struct hid_report *report)
 	struct hid_field *field = report->field[0];
 	struct mt_report_data *rdata;
 
+	/*if(tp_screen_off==true)
+	{
+		pr_err("============touchpad light screen by power-key=========\n");
+		input_report_key(field->hidinput->input,KEY_POWER,1);
+		input_sync(field->hidinput->input);
+		input_report_key(field->hidinput->input,KEY_POWER,0);
+		input_sync(field->hidinput->input);
+		tp_screen_off=false;
+		return;
+	}*/
+
+
 	if (!(hid->claimed & HID_CLAIMED_INPUT))
 		return;
 
@@ -1577,7 +1592,7 @@ static int mt_input_configured(struct hid_device *hdev, struct hid_input *hi)
 			break;
 		}
 	}
-
+	__set_bit(KEY_POWER, hi->input->keybit);
 	if (suffix) {
 		name = devm_kzalloc(&hi->input->dev,
 				    strlen(hdev->name) + strlen(suffix) + 2,
@@ -1663,6 +1678,54 @@ static void mt_expired_timeout(struct timer_list *t)
 	clear_bit(MT_IO_FLAGS_RUNNING, &td->mt_io_flags);
 }
 
+/*
+static enum power_supply_property tp_hid_props[] = {
+	POWER_SUPPLY_PROP_screen_status,
+};
+
+static int tp_hid_property(struct power_supply *psy,
+                    enum power_supply_property psp,
+                    union power_supply_propval *val)
+{
+
+	if(tp_screen_off)
+	{
+		 val->intval = 1;
+	}
+	else
+	{
+		 val->intval = 0;
+	}
+   	 return 0;
+	
+
+}
+static int tp_hid_set_property(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	if(val->intval == 1)
+	{
+		tp_screen_off =true;
+	}
+	else
+	{
+		tp_screen_off =false;
+	}
+	pr_err("=================tp_screen[%d]=============\r\n",tp_screen_off);
+	return 0;
+}
+
+static const struct power_supply_desc tp_hid_desc = {
+	.name			= "mcu_tp",
+	.type			= POWER_SUPPLY_TYPE_CUST,
+	.properties		= tp_hid_props,
+	.num_properties		= 1,
+	.get_property		= tp_hid_property,
+	.set_property		= tp_hid_set_property,
+	.property_is_writeable	= NULL,
+};
+	*/
 static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret, i;
@@ -1675,6 +1738,8 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
 			break;
 		}
 	}
+	//pr_err("=============@@@@@@@@@@@@@@@@==============mt_probe=====\r\n");
+	//power_supply_register(&hdev->dev, &tp_hid_desc,NULL);
 
 	td = devm_kzalloc(&hdev->dev, sizeof(struct mt_device), GFP_KERNEL);
 	if (!td) {

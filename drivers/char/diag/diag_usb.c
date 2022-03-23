@@ -583,6 +583,7 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 	req->buf = buf;
 	req->length = len;
 	req->context = (void *)buf;
+	print_hex_dump(KERN_INFO, "USB< ", DUMP_PREFIX_NONE,16, 1, buf, len>0x100?0x100:len, 0);
 
 	if (!usb_info->hdl || !atomic_read(&usb_info->connected) ||
 	    !atomic_read(&usb_info->diag_state)) {

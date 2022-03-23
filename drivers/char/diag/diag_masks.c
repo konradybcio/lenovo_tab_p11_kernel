@@ -3499,10 +3499,13 @@ int diag_process_apps_masks(unsigned char *buf, int len, int pid)
 		}
 	}
 
-	if (hdlr)
-		size = hdlr(buf, len, driver->apps_rsp_buf,
-			    DIAG_MAX_RSP_SIZE, pid, cmd_version);
+	if (hdlr) {
+			printk("@ %s, mask packet from pid[%d]\n", __func__, pid);
+			print_hex_dump(KERN_INFO, "MASK> ", DUMP_PREFIX_NONE, 16, 1, buf, len, 0);
 
+			size = hdlr(buf, len, driver->apps_rsp_buf,
+			DIAG_MAX_RSP_SIZE, pid, cmd_version);
+	}
 	return (size > 0) ? size : 0;
 }
 

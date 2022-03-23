@@ -757,6 +757,7 @@ int diag_cmd_add_reg(struct diag_cmd_reg_entry_t *new_entry, uint8_t proc,
 	if (!new_item)
 		return -ENOMEM;
 	kmemleak_not_leak(new_item);
+	pr_err("@ %s, registering cmd=%02x subsys_id=%02x lo=%02x hi=%02x, peripheral[%d] pid=%d(%s)\n",__func__, new_entry->cmd_code, new_entry->subsys_id, new_entry->cmd_code_lo,new_entry->cmd_code_hi, proc, pid, current->comm);
 
 	new_item->pid = pid;
 	new_item->proc = proc;
@@ -841,6 +842,7 @@ void diag_cmd_remove_reg(struct diag_cmd_reg_entry_t *entry, uint8_t proc)
 		return;
 	}
 
+	pr_err("@ %s, deregistering cmd=%02x subsys_id=%02x lo=%02x hi=%02x by %s\n",__func__, entry->cmd_code, entry->subsys_id, entry->cmd_code_lo,entry->cmd_code_hi, current->comm);
 	mutex_lock(&driver->cmd_reg_mutex);
 	temp_entry = diag_cmd_search(entry, proc);
 	if (temp_entry) {
@@ -1812,6 +1814,7 @@ static int diag_switch_logging_proc(struct diag_logging_mode_param_t *param,
 				"request to switch logging from %d mask:%0x to new_mode %d mask:%0x\n",
 				curr_mode, driver->md_session_mask[proc],
 				new_mode, peripheral_mask);
+				pr_err("@ %s, from %d mask:%0x to new_mode %d mask:%0x,pid[%d](%s)\n",__func__, curr_mode, driver->md_session_mask[proc],new_mode, peripheral_mask, current->tgid, current->comm);
 
 			err = diag_md_session_check(proc, curr_mode, new_mode,
 							param, &do_switch);
@@ -1826,7 +1829,7 @@ static int diag_switch_logging_proc(struct diag_logging_mode_param_t *param,
 				DIAG_LOG(DIAG_DEBUG_USERSPACE,
 					"not switching modes c: %d n: %d\n",
 					curr_mode, new_mode);
-				continue;
+				return 0;
 			}
 
 			diag_ws_reset(DIAG_WS_MUX);

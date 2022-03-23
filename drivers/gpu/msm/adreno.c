@@ -994,26 +994,6 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static void adreno_of_get_bimc_iface_clk(struct adreno_device *adreno_dev,
-		struct device_node *node)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	/* Getting gfx-bimc-interface-clk frequency */
-	if (!of_property_read_u32(node, "qcom,gpu-bimc-interface-clk-freq",
-				&pwr->gpu_bimc_int_clk_freq)) {
-		pwr->gpu_bimc_int_clk = devm_clk_get(&device->pdev->dev,
-				"bimc_gpu_clk");
-		if (IS_ERR_OR_NULL(pwr->gpu_bimc_int_clk)) {
-			dev_err(&device->pdev->dev,
-					"dt: Couldn't get bimc_gpu_clk (%d)\n",
-					PTR_ERR(pwr->gpu_bimc_int_clk));
-			pwr->gpu_bimc_int_clk = NULL;
-		}
-	}
-}
-
 static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
 		struct device_node *node)
 {
@@ -1071,8 +1051,6 @@ static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 
 	adreno_of_get_limits(adreno_dev, parent);
 
-	adreno_of_get_bimc_iface_clk(adreno_dev, parent);
-
 	return 0;
 }
 
@@ -1099,8 +1077,6 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 				return ret;
 
 			adreno_of_get_initial_pwrlevel(adreno_dev, child);
-
-			adreno_of_get_bimc_iface_clk(adreno_dev, child);
 
 			/*
 			 * Check for global throttle-pwrlevel first and override
@@ -3373,34 +3349,29 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		 * was successful
 		 */
 		if (!(status & fence_mask))
-			break;
-
+			return 0;
 		/* Wait a small amount of time before trying again */
 		udelay(GMU_CORE_WAKEUP_DELAY_US);
 
 		/* Try to write the fenced register again */
 		adreno_writereg(adreno_dev, offset, val);
-	}
 
-	if (i < GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
-		return 0;
+		if (i == GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
+			dev_err(device->dev,
+				"Waited %d usecs to write fenced register 0x%x, status 0x%x. Continuing to wait...\n",
+				(GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT *
+				GMU_CORE_WAKEUP_DELAY_US),
+				reg_offset, status);
+	}
 
 	ts2 = gmu_core_dev_read_ao_counter(device);
-
-	if (i == GMU_CORE_LONG_WAKEUP_RETRY_LIMIT) {
-		dev_err(device->dev,
-			"Timed out waiting %d usecs to write fenced register 0x%x, timestamps %llu %llu, status 0x%x\n",
-			i * GMU_CORE_WAKEUP_DELAY_US,
-			reg_offset, ts1, ts2, status);
-
-		return -ETIMEDOUT;
-	}
-
 	dev_err(device->dev,
-		"Waited %d usecs to write fenced register 0x%x. status 0x%x\n",
-		i * GMU_CORE_WAKEUP_DELAY_US, reg_offset, status);
+		"fenced write for 0x%x timed out in %dus. timestamps %llu %llu, status 0x%x\n",
+		reg_offset,
+		GMU_CORE_LONG_WAKEUP_RETRY_LIMIT * GMU_CORE_WAKEUP_DELAY_US,
+		ts1, ts2, status);
 
-	return 0;
+	return -ETIMEDOUT;
 }
 
 bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
@@ -3993,19 +3964,6 @@ static bool adreno_is_hwcg_on(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
-}
-
-u32 adreno_get_ucode_version(const u32 *data)
-{
-	u32 version;
-
-	version = data[1];
-
-	if ((version & 0xf) != 0xa)
-		return version;
-
-	version &= ~0xfff;
-	return  version | ((data[3] & 0xfff000) >> 12);
 }
 
 static const struct kgsl_functable adreno_functable = {

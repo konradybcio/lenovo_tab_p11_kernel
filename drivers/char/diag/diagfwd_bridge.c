@@ -226,6 +226,8 @@ int diag_remote_dev_read_done(int id, unsigned char *buf, int len)
 	ch = &bridge_info[id];
 	if (ch->type == DIAG_DATA_TYPE) {
 		err = diag_mux_write(BRIDGE_TO_MUX(id), buf, len, id);
+		print_hex_dump(KERN_INFO, "BRIDGE< ", DUMP_PREFIX_NONE,16, 1, buf, len>0x100?0x100:len, 0);
+
 		if (ch->dev_ops && ch->dev_ops->queue_read)
 			ch->dev_ops->queue_read(id, ch->ctxt);
 		return err;
@@ -312,6 +314,8 @@ int diagfwd_bridge_write(int id, unsigned char *buf, int len)
 {
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
+	pr_err("@ %s, %s[%d] request packet via %s(%d)\n", __func__, current->comm,current->pid, (driver->user_space_data_busy)?"APP":"USB", id);
+	print_hex_dump(KERN_INFO, "BRIDGE> ", DUMP_PREFIX_NONE, 16, 1, buf, len, 0);
 	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->write) {
 		return bridge_info[id].dev_ops->write(bridge_info[id].id,
 							bridge_info[id].ctxt,

@@ -554,7 +554,8 @@ static int i2c_pmic_probe(struct i2c_client *client,
 	rc = i2c_pmic_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n", rc);
-		goto cleanup;
+		return -EPROBE_DEFER;
+		
 	}
 
 	if (chip->pinctrl_name) {
